@@ -49,6 +49,10 @@
 # [*install_repositories*]
 # Bool to install repositories or not
 #
+# [*install_package*]
+# Bool to install package. If false then Condor must be installed manually or
+# with another module.
+#
 # [*is_ce*]
 # If machine is a computing element or a scheduler (condor term)
 #
@@ -135,6 +139,7 @@ class htcondor (
   $include_username_in_accounting = false,
   $use_pkg_condor_config          = false,
   $install_repositories           = true,
+  $install_package                = true,
   $dev_repositories               = false,
   $is_ce                          = false,
   $is_manager                     = false,
@@ -186,15 +191,23 @@ class htcondor (
   $cert_map_file                  = '/etc/condor/certificate_mapfile',
   $krb_map_file                   = '/etc/condor/kerberos_mapfile',
   ) {
-  class { 'htcondor::repositories':
-    install_repos   => $install_repositories,
-    dev_repos       => $dev_repositories,
-    condor_priority => $condor_priority,
+
+
+  if $install_repositories {
+    class { 'htcondor::repositories':
+      install_repos   => $install_repositories,
+      dev_repos       => $dev_repositories,
+      condor_priority => $condor_priority,
+      before          => Class['htcondor::install'],
+    }
   }
 
-  class { 'htcondor::install':
-    ensure    => $condor_version,
-    dev_repos => $dev_repositories,
+  if $install_package {
+    class { 'htcondor::install':
+      ensure    => $condor_version,
+      dev_repos => $dev_repositories,
+      before    => Class['htcondor::config'],
+    }
   }
 
   class { 'htcondor::config':
@@ -263,11 +276,9 @@ class htcondor (
     use_krb_map_file               => $use_krb_map_file,
     cert_map_file                  => $cert_map_file,
     krb_map_file                   => $krb_map_file,
-  }
+  }->
 
   class { 'htcondor::service':
   }
 
-  Class['htcondor::repositories'] -> Class['htcondor::install'] -> Class['htcondor::config'
-    ] -> Class['htcondor::service']
 }
